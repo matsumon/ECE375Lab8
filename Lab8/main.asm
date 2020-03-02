@@ -103,9 +103,9 @@ MAIN:
 ;TODO: ???
 in mpr,PIND		; grabbing any user input
 sbrc mpr, 0			; skipping if bit is set
-rcall Forward		; calling to  function
-;sbrc mpr, 1			; skipping if bit is set
-;rcall Backward		; calling to  function
+rjmp Forward		; calling to  function
+sbrc mpr, 1			; skipping if bit is set
+rjmp Backward		; calling to  function
 ;sbrc mpr, 2			; skipping if bit is set
 ;rcall Left		; calling to  function
 ;sbrc mpr, 3			; skipping if bit is set
@@ -184,7 +184,7 @@ out PORTB, mpr ; Send command to port
 ldi waitcnt, WTime ; Wait for 1 second
 rcall Waits ; Call wait function
 rcall USART_Transmit ; Call USART_Transmit function
-ret ; Return from subroutine
+rjmp Main ; Return from subroutine
 
 Backward:
 ; Turn right for a second
@@ -194,7 +194,7 @@ out PORTB, mpr ; Send command to port
 ldi waitcnt, WTime ; Wait for 1 second
 rcall Waits ; Call wait function
 rcall USART_Transmit ; Call USART_Transmit function
-ret ; Return from subroutine
+rjmp Main ; Return from subroutine
 
 Stop:
 ; Turn right for a second
