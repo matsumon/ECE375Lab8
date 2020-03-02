@@ -158,13 +158,6 @@ pop waitcnt ; Restore wait register
 ret ; Return from subroutine
 
 Left:
-push mpr ; Save mpr register
-push waitcnt ; Save wait register
-in mpr, SREG ; Save program state
-push mpr ;
-clr mpr ; masking interrupts
-out EIMSK, mpr ; masking inetrrupts
-
 ; Turn left for a second
 ldi mpr, TurnL ; Load Turn Left Command
 ldi udr_action, 0b10010000 ;loading action value
@@ -172,27 +165,9 @@ out PORTB, mpr ; Send command to port
 ldi waitcnt, WTime ; Wait for 1 second
 rcall Waits ; Call wait function
 rcall USART_Transmit ; Call USART_Transmit function
-
-
-ldi mpr, 0b11111111 ; loading with eimsk value
-out EIMSK, mpr ; unmasking interrupts
-ldi mpr, $ff ; loading ones in EIFR
-out EIFR,mpr ; clearing EIFR
-pop mpr ; Restore program state
-out SREG, mpr ;
-pop waitcnt ; Restore wait register
-pop mpr ; Restore mpr
-clr mpr ; clearing it 
 ret ; Return from subroutine
 
 Right:
-push mpr ; Save mpr register
-push waitcnt ; Save wait register
-in mpr, SREG ; Save program state
-push mpr ;
-clr mpr ; masking interrupts
-out EIMSK, mpr ; masking inetrrupts
-
 ; Turn right for a second
 ldi udr_action, 0b10100000 ;loading action value
 ldi mpr, TurnR ; Load Turn Left Command
@@ -200,55 +175,18 @@ out PORTB, mpr ; Send command to port
 ldi waitcnt, WTime ; Wait for 1 second
 rcall Waits ; Call wait function
 rcall USART_Transmit ; Call USART_Transmit function
-
-
-ldi mpr, 0b11111111 ; loading with eimsk value
-out EIMSK, mpr ; unmasking interrupts
-ldi mpr, $ff ; loading ones in EIFR
-out EIFR,mpr ; clearing EIFR
-pop mpr ; Restore program state
-out SREG, mpr ;
-pop waitcnt ; Restore wait register
-pop mpr ; Restore mpr
-clr mpr ; clearing it
 ret ; Return from subroutine
 
 Forward:
-push mpr ; Save mpr register
-push waitcnt ; Save wait register
-in mpr, SREG ; Save program state
-push mpr ;
-clr mpr ; masking interrupts
-out EIMSK, mpr ; masking inetrrupts
-
-; Turn right for a second
 ldi udr_action, 0b10110000  ;loading action value
 ldi mpr, MovFwd ; Load Turn Left Command
 out PORTB, mpr ; Send command to port
 ldi waitcnt, WTime ; Wait for 1 second
 rcall Waits ; Call wait function
 rcall USART_Transmit ; Call USART_Transmit function
-
-
-ldi mpr, 0b11111111 ; loading with eimsk value
-out EIMSK, mpr ; unmasking interrupts
-ldi mpr, $ff ; loading ones in EIFR
-out EIFR,mpr ; clearing EIFR
-pop mpr ; Restore program state
-out SREG, mpr ;
-pop waitcnt ; Restore wait register
-pop mpr ; Restore mpr
-clr mpr ; clearing it
 ret ; Return from subroutine
 
 Backward:
-push mpr ; Save mpr register
-push waitcnt ; Save wait register
-in mpr, SREG ; Save program state
-push mpr ;
-clr mpr ; masking interrupts
-out EIMSK, mpr ; masking inetrrupts
-
 ; Turn right for a second
 ldi udr_action, 0b10000000  ;loading action value
 ldi mpr, MovBck ; Load Turn Left Command
@@ -256,27 +194,9 @@ out PORTB, mpr ; Send command to port
 ldi waitcnt, WTime ; Wait for 1 second
 rcall Waits ; Call wait function
 rcall USART_Transmit ; Call USART_Transmit function
-
-
-ldi mpr, 0b11111111 ; loading with eimsk value
-out EIMSK, mpr ; unmasking interrupts
-ldi mpr, $ff ; loading ones in EIFR
-out EIFR,mpr ; clearing EIFR
-pop mpr ; Restore program state
-out SREG, mpr ;
-pop waitcnt ; Restore wait register
-pop mpr ; Restore mpr
-clr mpr ; clearing it
 ret ; Return from subroutine
 
 Stop:
-push mpr ; Save mpr register
-push waitcnt ; Save wait register
-in mpr, SREG ; Save program state
-push mpr ;
-clr mpr ; masking interrupts
-out EIMSK, mpr ; masking inetrrupts
-
 ; Turn right for a second
 ldi udr_action, 0b11001000  ;loading action value
 ldi mpr, Halt ; Load Turn Left Command
@@ -284,27 +204,9 @@ out PORTB, mpr ; Send command to port
 ldi waitcnt, WTime ; Wait for 1 second
 rcall Waits ; Call wait function
 rcall USART_Transmit ; Call USART_Transmit function
-
-
-ldi mpr, 0b11111111 ; loading with eimsk value
-out EIMSK, mpr ; unmasking interrupts
-ldi mpr, $ff ; loading ones in EIFR
-out EIFR,mpr ; clearing EIFR
-pop mpr ; Restore program state
-out SREG, mpr ;
-pop waitcnt ; Restore wait register
-pop mpr ; Restore mpr
-clr mpr ; clearing it
 ret ; Return from subroutine
 
 Freeze:
-push mpr ; Save mpr register
-push waitcnt ; Save wait register
-in mpr, SREG ; Save program state
-push mpr ;
-clr mpr ; masking interrupts
-out EIMSK, mpr ; masking inetrrupts
-
 ; Turn right for a second
 ldi udr_action, Frozen  ;loading action value
 ldi mpr, Frozen ; Load Turn Left Command
@@ -312,16 +214,6 @@ out PORTB, mpr ; Send command to port
 ldi waitcnt, WTime ; Wait for 1 second
 rcall Waits ; Call wait function
 rcall USART_Transmit ; Call USART_Transmit function
-
-ldi mpr, 0b11111111 ; loading with eimsk value
-out EIMSK, mpr ; unmasking interrupts
-ldi mpr, $ff ; loading ones in EIFR
-out EIFR,mpr ; clearing EIFR
-pop mpr ; Restore program state
-out SREG, mpr ; restoring sreg
-pop waitcnt ; Restore wait register
-pop mpr ; Restore mpr
-clr mpr ; clearing it
 ret ; Return from subroutine
 
 HitRight:
@@ -343,7 +235,7 @@ out PORTB, mpr ; Send command to port
 ldi waitcnt, WTime ; Wait for 1 second
 rcall Waits ; Call wait function
 
-ldi mpr, 0b00001111 ; loading with eimsk value
+ldi mpr, 0b0000_0000 ; loading with eimsk value
 out EIMSK, mpr ; unmasking interrupts
 ldi mpr, $ff ; loading ones in EIFR
 out EIFR,mpr ; clearing EIFR
