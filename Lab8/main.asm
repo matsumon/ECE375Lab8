@@ -22,6 +22,7 @@
 .def udr_address = r17 ; register for address
 .def udr_action = r18 ; register for use by udr
 .def frozen_register = r19 ; register for frozen
+.def last_command = r20  ; register for last command
 .def waitcnt = r23 ; Wait Loop Counter
 .def ilcnt = r24 ; Inner Loop Counter
 .def olcnt = r25 ; Outer Loop Counter
@@ -90,6 +91,7 @@ sts EICRA, mpr ; falling edge trigger
 out EICRB, mpr ; falling edge trigger
 clr mpr ; clearing mpr
 out EIMSK, mpr		; disabling interrupts 0 to 7
+clr last_command    ; clearing last command
 sei ; setting global interrupts
 
 
@@ -102,19 +104,21 @@ sei ; setting global interrupts
 MAIN:
 ;TODO: ???
 in mpr,PIND		; grabbing any user input
-sbrc mpr, 0			; skipping if bit is set
+cp last_command,mpr	; comparing
+breq MAIN			; breaking to main if last command and mpr are equal
+sbrs mpr, 0			; skipping if bit is set
 rjmp Forward		; calling to  function
-sbrc mpr, 1			; skipping if bit is set
+sbrs mpr, 1			; skipping if bit is set
 rjmp Backward		; calling to  function
-;sbrc mpr, 2			; skipping if bit is set
-;rcall Left		; calling to  function
-;sbrc mpr, 3			; skipping if bit is set
-;rcall Right		; calling to  function
-;sbrc mpr, 4			; skipping if bit is set
-;rcall Freeze		; calling to  function
-;sbrc mpr, 5			; skipping if bit is set
-;rcall Halt		; calling to  function
-;sbrc mpr, 6			; skipping if bit is set
+sbrs mpr, 4			; skipping if bit is set
+rjmp Left		; calling to  function
+sbrs mpr, 5			; skipping if bit is set
+rjmp Right		; calling to  function
+sbrs mpr, 6			; skipping if bit is set
+rjmp Freeze		; calling to  function
+sbrs mpr, 7			; skipping if bit is set
+rjmp Halt		; calling to  function
+;sbrs mpr, 6			; skipping if bit is set
 ;rcall HitRight		; calling to  function
 ;sbrc mpr, 7			; skipping if bit is set
 ;rcall HitLeft		; calling to  function
@@ -165,7 +169,7 @@ out PORTB, mpr ; Send command to port
 ldi waitcnt, WTime ; Wait for 1 second
 rcall Waits ; Call wait function
 rcall USART_Transmit ; Call USART_Transmit function
-ret ; Return from subroutine
+rjmp Main ; Return from subroutine
 
 Right:
 ; Turn right for a second
@@ -175,7 +179,7 @@ out PORTB, mpr ; Send command to port
 ldi waitcnt, WTime ; Wait for 1 second
 rcall Waits ; Call wait function
 rcall USART_Transmit ; Call USART_Transmit function
-ret ; Return from subroutine
+rjmp Main ; Return from subroutine
 
 Forward:
 ldi udr_action, 0b10110000  ;loading action value
@@ -204,7 +208,7 @@ out PORTB, mpr ; Send command to port
 ldi waitcnt, WTime ; Wait for 1 second
 rcall Waits ; Call wait function
 rcall USART_Transmit ; Call USART_Transmit function
-ret ; Return from subroutine
+rjmp Main ; Return from subroutine
 
 Freeze:
 ; Turn right for a second
@@ -214,7 +218,7 @@ out PORTB, mpr ; Send command to port
 ldi waitcnt, WTime ; Wait for 1 second
 rcall Waits ; Call wait function
 rcall USART_Transmit ; Call USART_Transmit function
-ret ; Return from subroutine
+rjmp Main ; Return from subroutine
 
 HitRight:
 push mpr ; Save mpr register
