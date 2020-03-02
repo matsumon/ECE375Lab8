@@ -42,9 +42,6 @@
 .equ Halt =    ($80|1<<(EngEnR-1)|1<<(EngEnL-1)) ;0b11001000 Halt Action Code
 .equ Frozen = 0b11111000 ; frozen value action code
 
-.equ EnableMask = 0b11111111 ; binary number to represent EnableMask when we want interrupts
-.equ DisableMask = 0b00000000; binary number to disable Mask when we dont want inerrupts
-
 ;***********************************************************
 ;* Start of Code Segment
 ;***********************************************************
@@ -55,30 +52,6 @@
 ;***********************************************************
 .org $0000 ; Beginning of IVs
 rjmp INIT ; Reset interrupt
-.org $0002 ; Beginning of IVs
-rcall Forward ; Reset interrupt
-reti ; return from interrupt
-.org $0004 ; Beginning of IVs
-rcall Backward ; Reset interrupt
-reti ; return from interrupt
-.org $0006 ; Beginning of IVs
-rcall Right ; Reset interrupt
-reti ; return from interrupt
-.org $0008 ; Beginning of IVs
-rcall Left ; Reset interrupt
-reti ; return from interrupt
-.org $0010 ; Beginning of IVs
-rcall Stop ; Reset interrupt
-reti ; return from interrupt
-.org $0012 ; Beginning of IVs
-rcall Freeze ; Reset interrupt
-reti ; return from interrupt
-.org $0014 ; Beginning of IVs
-rcall HitRight ; Reset interrupt
-reti ; return from interrupt
-.org $0016 ; Beginning of IVs
-rcall HitLeft ; Reset interrupt
-reti ; return from interrupt
 .org $0046 ; End of Interrupt Vectors
 
 
@@ -91,40 +64,35 @@ out SPH, mpr ; loading stack pointer
 ldi mpr, low(RAMEND) ; loading mpr with low of end of ram
 out SPL, mpr ; loading stack pointer
 ;Stack Pointer (VERY IMPORTANT!!!!)
-clr mpr ; clearing mpr
+ldi mpr, 0b0000_1100 ; setting data direction to input except for 2 and 3
 out DDRD, mpr ; setting ddrd to input
+ldi mpr, 0b1111_0011 ; loading port value 2 3 are output
+out PORTD, mpr ; loading value into PORTD
 ldi mpr, $ff ; setting mpr
 out DDRB, mpr ;setting ddrb to output
 ;I/O Ports
-ldi mpr, 0b0100100 ; loading mpr with value
-sts UCSR0B, mpr ; loading ustart control register B with mpr
-ldi mpr, 0b00110110 ; loading mpr with value
-sts UCSR0C, mpr ; loading ustart control register c with mpr
+ldi mpr, 0b0000_1000 ; loading mpr with value
+sts UCSR1B, mpr ; loading ustart control register B with mpr
+ldi mpr, 0b0000_1110 ; loading mpr with value
+sts UCSR1C, mpr ; loading ustart control register c with mpr
 ldi mpr, $01 ; loading mpr with high of ubrr
-sts UBRR0H, mpr ; loading high with high
+sts UBRR1H, mpr ; loading high with high
 ldi mpr, $A0 ; loading mpr with low of ubrr
-sts UBRR0L,mpr ; loading low with low
+sts UBRR1L,mpr ; loading low with low
 ;USART1
 ;Set baudrate at 2400bps
 ;Enable transmitter
 ;Set frame format: 8 data bits, 2 stop bits
-; interrupts
-ldi mpr, $FF ; setting mpr
-out EIMSK, mpr ; setting EIMSK So all interrupts are available
-;INT7 Freeze
-;INT6 Halt
-;INT5 Forward
-;INT4 Backward
-;INT3 Right
-;INT2 Left
-;INT1 Right Whisker
-;INT0 Left Whisker
+ldi udr_address, 0b00110101 ; setting udr_address
+clr frozen_register ; clearing frozen register
 ldi mpr, 0b10101010 ; setting interrupts to trigger on falling edge
 sts EICRA, mpr ; falling edge trigger
 out EICRB, mpr ; falling edge trigger
-ldi udr_address, 0b00110101 ; setting udr_address
-clr frozen_register ; clearing frozen register
+clr mpr ; clearing mpr
+out EIMSK, mpr		; disabling interrupts 0 to 7
 sei ; setting global interrupts
+
+
 
 ;Other
 
@@ -133,19 +101,40 @@ sei ; setting global interrupts
 ;***********************************************************
 MAIN:
 ;TODO: ???
+in mpr,PIND		; grabbing any user input
+sbrc mpr, 0			; skipping if bit is set
+rcall Forward		; calling to  function
+;sbrc mpr, 1			; skipping if bit is set
+;rcall Backward		; calling to  function
+;sbrc mpr, 2			; skipping if bit is set
+;rcall Left		; calling to  function
+;sbrc mpr, 3			; skipping if bit is set
+;rcall Right		; calling to  function
+;sbrc mpr, 4			; skipping if bit is set
+;rcall Freeze		; calling to  function
+;sbrc mpr, 5			; skipping if bit is set
+;rcall Halt		; calling to  function
+;sbrc mpr, 6			; skipping if bit is set
+;rcall HitRight		; calling to  function
+;sbrc mpr, 7			; skipping if bit is set
+;rcall HitLeft		; calling to  function
 rjmp MAIN
 
 ;***********************************************************
 ;* Functions and Subroutines
 ;***********************************************************
 USART_Transmit:
-out UDR0,udr_address ; loading value into register
+mov mpr, udr_address ; loading mpr with address
+sts UDR1,mpr ; loading value into register
 WaitingAddress:
-sbis UCSR0A, 5 ; skips next instruction if the empty data register is set
+lds mpr, UCSR1A
+sbrs mpr, 5 ; skips next instruction if the empty data register is set
 rjmp WaitingAddress ; basically a wait function that waits until finished transmitting
-out UDR0,udr_action ; loading value into register
+mov mpr, udr_action ; loading mpr with address
+sts UDR1,mpr ; loading value into register
 WaitingAction:
-sbis UCSR0A, 5 ; skips next instruction if transmission is complete
+lds mpr, UCSR1A	; loading mpr
+sbrs mpr, 5 ; skips next instruction if transmission is complete
 rjmp WaitingAction ; basically a wait function that waits until finished transmitting
 ret ; returns
 
@@ -193,6 +182,7 @@ pop mpr ; Restore program state
 out SREG, mpr ;
 pop waitcnt ; Restore wait register
 pop mpr ; Restore mpr
+clr mpr ; clearing it 
 ret ; Return from subroutine
 
 Right:
@@ -220,6 +210,7 @@ pop mpr ; Restore program state
 out SREG, mpr ;
 pop waitcnt ; Restore wait register
 pop mpr ; Restore mpr
+clr mpr ; clearing it
 ret ; Return from subroutine
 
 Forward:
@@ -247,6 +238,7 @@ pop mpr ; Restore program state
 out SREG, mpr ;
 pop waitcnt ; Restore wait register
 pop mpr ; Restore mpr
+clr mpr ; clearing it
 ret ; Return from subroutine
 
 Backward:
@@ -274,6 +266,7 @@ pop mpr ; Restore program state
 out SREG, mpr ;
 pop waitcnt ; Restore wait register
 pop mpr ; Restore mpr
+clr mpr ; clearing it
 ret ; Return from subroutine
 
 Stop:
@@ -301,6 +294,7 @@ pop mpr ; Restore program state
 out SREG, mpr ;
 pop waitcnt ; Restore wait register
 pop mpr ; Restore mpr
+clr mpr ; clearing it
 ret ; Return from subroutine
 
 Freeze:
@@ -327,6 +321,7 @@ pop mpr ; Restore program state
 out SREG, mpr ; restoring sreg
 pop waitcnt ; Restore wait register
 pop mpr ; Restore mpr
+clr mpr ; clearing it
 ret ; Return from subroutine
 
 HitRight:
@@ -356,6 +351,7 @@ pop mpr ; Restore program state
 out SREG, mpr ;
 pop waitcnt ; Restore wait register
 pop mpr ; Restore mpr
+clr mpr ; clearing it
 ret ; Return from subroutine
 
 HitLeft:
@@ -387,6 +383,7 @@ pop mpr ; Restore program state
 out SREG, mpr ;
 pop waitcnt ; Restore wait register
 pop mpr ; Restore mpr
+clr mpr ; clearing it
 ret ; Return from subroutine
 ;***********************************************************
 ;* Stored Program Data
