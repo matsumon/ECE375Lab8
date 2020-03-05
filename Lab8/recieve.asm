@@ -37,8 +37,8 @@
 .equ	EngDirR = 5				; Right Engine Direction Bit
 .equ	EngDirL = 6				; Left Engine Direction Bit
 
-.equ	BotAddress = 0b00110101 ;(Enter your robot's address here (8 bits))
-
+;.equ	BotAddress = 0b00110101 ;(Enter your robot's address here (8 bits))
+.equ	BotAddress = $2A
 ;/////////////////////////////////////////////////////////////
 ;These macros are the values to make the TekBot Move.
 ;/////////////////////////////////////////////////////////////
@@ -78,9 +78,9 @@ out SPH, mpr ; loading stack pointer
 ldi mpr, low(RAMEND) ; loading mpr with low of end of ram
 out SPL, mpr ; loading stack pointer
 ;Stack Pointer (VERY IMPORTANT!!!!)
-ldi mpr, 0b0000_1100 ; setting data direction to input except for 2 and 3
+ldi mpr, 0b0000_0000 ; setting data direction to input except for 2 and 3
 out DDRD, mpr ; setting ddrd to input
-ldi mpr, 0b1111_0011 ; loading port value 2 3 are output
+ldi mpr, 0b1111_1011 ; loading port value 2 3 are output
 out PORTD, mpr ; loading value into PORTD
 ldi mpr, $ff ; setting mpr
 out DDRB, mpr ;setting ddrb to output
@@ -98,7 +98,7 @@ sts UBRR1L,mpr ; loading low with low
 ;Enable transmitter
 ;Set frame format: 8 data bits, 2 stop bits
 ; interrupts
-ldi udr_address, 0b00110101 ; setting udr_address
+clr udr_address ; setting udr_address
 clr frozen_register ; clearing frozen register
 ldi mpr, 0b10101010 ; setting interrupts to trigger on falling edge
 sts EICRA, mpr ; falling edge trigger
@@ -129,21 +129,21 @@ MAIN:
 ;*	Functions and Subroutines
 ;***********************************************************
 Rec:
-;I am broke
-USART_Recieve:
-WaitingAddress:
-sbic UCSR1A, 7			; skips next instruction if the recieve transmission isnt cleared as that means there is stuff in there
-rjmp WaitingAddress		; basically a wait function that waits until finished transmitting
-cbi UCSR1A, 7			; clearing transmit register by writing a one to it. Just in case
-in mpr, UDR1			; grabbing the address
-cpi mpr, BotAddress     ; sets zero register
-brne skip				; jumps to skip and then returns if the address and botaddress not equal.
-WaitingAction:
-sbis UCSR01, 6			; skips next instruction if transmission is complete
-rjmp WaitingAction		; basically a wait function that waits until finished transmitting
-skip:
-ret						; returns
+push mpr				; saving mpr
+lds mpr, UDR1			; getting contents
+sbrs mpr, 7				;testing whether seventh bit is a zero or one
+mov  udr_address, mpr	; copying  mpr into address
+sbrc mpr, 7				; testing wether seventh bit is a zero or one
+rcall Action			; jumping to address  
+NotRight:				; label for wrong bot address
+pop mpr					; restoring mpr
 
+Action:
+mov udr_action , mpr    ; moving mpr into action
+cpi udr_address, BotAddress ; checking botaddress
+brne NotRight			; returning if nt equal
+rcall PerformAction		; jumping to function
+ret						; returning
 Waits:
 push waitcnt ; Save wait register
 push ilcnt ; Save ilcnt register
@@ -163,64 +163,12 @@ pop ilcnt ; Restore ilcnt register
 pop waitcnt ; Restore wait register
 ret ; Return from subroutine
 
-Left:
-; Turn left for a second
-ldi mpr, TurnL ; Load Turn Left Command
-ldi udr_action, 0b10010000 ;loading action value
+PerformAction:		; label for action handler
+mov mpr, udr_action ; Load  Command
 out PORTB, mpr ; Send command to port
 ldi waitcnt, WTime ; Wait for 1 second
 rcall Waits ; Call wait function
-rcall USART_Transmit ; Call USART_Transmit function
-rjmp Main ; Return from subroutine
-
-Right:
-; Turn right for a second
-ldi udr_action, 0b10100000 ;loading action value
-ldi mpr, TurnR ; Load Turn Left Command
-out PORTB, mpr ; Send command to port
-ldi waitcnt, WTime ; Wait for 1 second
-rcall Waits ; Call wait function
-rcall USART_Transmit ; Call USART_Transmit function
-rjmp Main ; Return from subroutine
-
-Forward:
-ldi udr_action, 0b10110000  ;loading action value
-ldi mpr, MovFwd ; Load Turn Left Command
-out PORTB, mpr ; Send command to port
-ldi waitcnt, WTime ; Wait for 1 second
-rcall Waits ; Call wait function
-rcall USART_Transmit ; Call USART_Transmit function
-rjmp Main ; Return from subroutine
-
-Backward:
-; Turn right for a second
-ldi udr_action, 0b10000000  ;loading action value
-ldi mpr, MovBck ; Load Turn Left Command
-out PORTB, mpr ; Send command to port
-ldi waitcnt, WTime ; Wait for 1 second
-rcall Waits ; Call wait function
-rcall USART_Transmit ; Call USART_Transmit function
-rjmp Main ; Return from subroutine
-
-Stop:
-; Turn right for a second
-ldi udr_action, 0b11001000  ;loading action value
-ldi mpr, Halt ; Load Turn Left Command
-out PORTB, mpr ; Send command to port
-ldi waitcnt, WTime ; Wait for 1 second
-rcall Waits ; Call wait function
-rcall USART_Transmit ; Call USART_Transmit function
-rjmp Main ; Return from subroutine
-
-Freeze:
-; Turn right for a second
-ldi udr_action, Frozen  ;loading action value
-ldi mpr, Frozen ; Load Turn Left Command
-out PORTB, mpr ; Send command to port
-ldi waitcnt, WTime ; Wait for 1 second
-rcall Waits ; Call wait function
-rcall USART_Transmit ; Call USART_Transmit function
-rjmp Main ; Return from subroutine
+ret		    ; Return from subroutine
 
 HitRight:
 push mpr ; Save mpr register
@@ -290,4 +238,3 @@ ret ; Return from subroutine
 ;***********************************************************
 ;*	Additional Program Includes
 ;***********************************************************
-
