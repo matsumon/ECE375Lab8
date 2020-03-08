@@ -60,6 +60,12 @@
 ;***********************************************************
 .org $0000 ; Beginning of IVs
 rjmp INIT ; Reset interrupt
+.org $0002 ; Beginning of IVs
+rcall HitRight ; Reset interrupt
+reti			; return
+.org $0004 ; Beginning of IVs
+rcall HitLeft ; Reset interrupt
+reti			; return
 .org $003C ; beginning of recieve complete interrupt
 rcall Rec ; calling recieive
 reti			; returning
@@ -141,16 +147,18 @@ ldi remote, $ff			; good to go
 sbrc mpr, 7				; testing wether seventh bit is a zero or one
 rcall Action			; jumping to address  
 NotRight:				; label for wrong bot address
+cpi udr_action , 0b0101_0101; checking for frozen action
+breq HandleFrozen		; jumping to frozen
 ret
 
 Action:
 in last_transmission,PortB ;grabbing portb
 push last_transmission			; pushing to stack
 mov udr_action , mpr    ; moving mpr into action
-cpi udr_action , Frozen; checking for frozen action
-breq HandleFrozen		; jumping to frozen
 cpi udr_address, BotAddress ; checking botaddress
 brne NotRight			; returning if nt equal
+cpi udr_action , Frozen; checking for frozen action
+breq SendSignal		; jumping to frozen
 rcall PerformAction		; jumping to function
 ActionReturn:			; action return
 pop previous_action		; popping previous action
@@ -167,12 +175,14 @@ sts UCSR1B, mpr ; loading ustart control register B with mpr
 ldi mpr, 0b0000_1110 ; loading mpr with value
 sts UCSR1C, mpr ; loading ustart control register c with mpr
 
-ldi mpr, Frozen ; loading mpr with address
+ldi mpr, 0b0101_0101 ; loading mpr with address
 sts UDR1,mpr ; loading value into register
 WaitingAction:
 lds mpr, UCSR1A	; loading mpr
 sbrs mpr, 5 ; skips next instruction if transmission is complete
 rjmp WaitingAction ; basically a wait function that waits until finished transmitting
+ldi mpr, 0b01010101
+out PORTB, mpr
 
 ldi mpr, 0b1001_0000 ; loading mpr with value
 sts UCSR1B, mpr ; loading ustart control register B with mpr
@@ -180,9 +190,13 @@ ldi mpr, 0b0000_1110 ; loading mpr with value
 sts UCSR1C, mpr ; loading ustart control register c with mpr
 rjmp stackHandler		; jumping
 
+SendSignals:	
+ldi mpr, $ff
+out PORTB, mpr
+ldi waitcnt, 100 ; Wait for 1 second
+rcall Waits ; Call wait function
+rjmp StackHandler
 HandleFrozen:			; funciton to handl frozen
-sbrs remote, 0			; if cleared then go to function
-rjmp SendSignal			; going to function
 inc frozen_register		; incrementing frozen register
 rcall PerformAction		; doing action
 ldi waitcnt, 10 ; Wait for 1 second
@@ -242,6 +256,12 @@ in mpr, SREG ; Save program state
 push mpr ;
 clr mpr ; masking interrupts
 out EIMSK, mpr ; masking inetrrupts
+
+ldi mpr, 0b0000_0000 ; loading mpr with value
+sts UCSR1B, mpr ; loading ustart control register B with mpr
+ldi mpr, 0b0000_0000 ; loading mpr with value
+sts UCSR1C, mpr ; loading ustart control register c with mpr
+
 ; Move Backwards for a second
 ldi mpr, MovBck ; Load Move Backward command
 out PORTB, mpr ; Send command to port
@@ -254,7 +274,7 @@ out PORTB, mpr ; Send command to port
 ldi waitcnt, WTime ; Wait for 1 second
 rcall Waits ; Call wait function
 
-ldi mpr, 0b0000_0000 ; loading with eimsk value
+ldi mpr, 0b0000_0011 ; loading with eimsk value
 out EIMSK, mpr ; unmasking interrupts
 ldi mpr, $ff ; loading ones in EIFR
 out EIFR,mpr ; clearing EIFR
@@ -263,6 +283,12 @@ out SREG, mpr ;
 pop waitcnt ; Restore wait register
 pop mpr ; Restore mpr
 clr mpr ; clearing it
+
+ldi mpr, 0b1001_0000 ; loading mpr with value
+sts UCSR1B, mpr ; loading ustart control register B with mpr
+ldi mpr, 0b0000_1110 ; loading mpr with value
+sts UCSR1C, mpr ; loading ustart control register c with mpr
+
 ret ; Return from subroutine
 
 HitLeft:
@@ -275,6 +301,11 @@ clr mpr ; masking interrupts
 out EIMSK, mpr ; masking inetrrupts
 
 
+ldi mpr, 0b0000_0000 ; loading mpr with value
+sts UCSR1B, mpr ; loading ustart control register B with mpr
+ldi mpr, 0b0000_0000 ; loading mpr with value
+sts UCSR1C, mpr ; loading ustart control register c with mpr
+
 ; Move Backwards for a second
 ldi mpr, MovBck ; Load Move Backward command
 out PORTB, mpr ; Send command to port
@@ -286,7 +317,7 @@ ldi mpr, TurnR ; Load Turn Left Command
 out PORTB, mpr ; Send command to port
 rcall Waits ; Call wait function
 
-ldi mpr, 0b00001111 ; loading with eimsk value
+ldi mpr, 0b00000011 ; loading with eimsk value
 out EIMSK, mpr ; unmasking interrupts
 ldi mpr, $ff ; loading ones in EIFR
 out EIFR,mpr ; clearing EIFR
@@ -295,6 +326,12 @@ out SREG, mpr ;
 pop waitcnt ; Restore wait register
 pop mpr ; Restore mpr
 clr mpr ; clearing it
+
+ldi mpr, 0b1001_0000 ; loading mpr with value
+sts UCSR1B, mpr ; loading ustart control register B with mpr
+ldi mpr, 0b0000_1110 ; loading mpr with value
+sts UCSR1C, mpr ; loading ustart control register c with mpr
+
 ret ; Return from subroutine
 ;***********************************************************
 ;*	Stored Program Data
