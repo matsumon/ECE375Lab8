@@ -178,6 +178,7 @@ ldi mpr, 0b1001_0000 ; loading mpr with value
 sts UCSR1B, mpr ; loading ustart control register B with mpr
 ldi mpr, 0b0000_1110 ; loading mpr with value
 sts UCSR1C, mpr ; loading ustart control register c with mpr
+rjmp stackHandler		; jumping
 
 HandleFrozen:			; funciton to handl frozen
 sbrs remote, 0			; if cleared then go to function
