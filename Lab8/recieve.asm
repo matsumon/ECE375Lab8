@@ -23,7 +23,8 @@
 .def udr_action = r18 ; register for use by udr
 .def frozen_register = r19 ; register for frozen
 .def last_transmission = r20  ; register for last command
-.def last_action = r21			; register for current action
+.def remote = r21			; register for current action
+.def previous_action = r22		; register for last action
 .def waitcnt = r23 ; Wait Loop Counter
 .def ilcnt = r24 ; Inner Loop Counter
 .def olcnt = r25 ; Outer Loop Counter 
@@ -47,6 +48,7 @@
 .equ	TurnR =   (1<<EngDirL)				;0b01000000 Turn Right Action Code
 .equ	TurnL =   (1<<EngDirR)				;0b00100000 Turn Left Action Code
 .equ	Halt =    (1<<EngEnR|1<<EngEnL)		;0b10010000 Halt Action Code
+.equ Frozen = 0b11111000 ; frozen value action code
 
 ;***********************************************************
 ;*	Start of Code Segment
@@ -58,7 +60,6 @@
 ;***********************************************************
 .org $0000 ; Beginning of IVs
 rjmp INIT ; Reset interrupt
-
 .org $003C ; beginning of recieve complete interrupt
 rcall Rec ; calling recieive
 reti			; returning
@@ -103,8 +104,11 @@ clr frozen_register ; clearing frozen register
 ldi mpr, 0b10101010 ; setting interrupts to trigger on falling edge
 sts EICRA, mpr ; falling edge trigger
 out EICRB, mpr ; falling edge trigger
-clr mpr ; clearing mpr
+ldi mpr, 0b0000_0011
 out EIMSK, mpr		; disabling interrupts 0 to 7
+clr mpr        ; clearing mpr
+
+clr remote;clearing
 sei ; setting global interrupts
 	;Stack Pointer (VERY IMPORTANT!!!!)
 	;I/O Ports
@@ -129,21 +133,86 @@ MAIN:
 ;*	Functions and Subroutines
 ;***********************************************************
 Rec:
-push mpr				; saving mpr
 lds mpr, UDR1			; getting contents
 sbrs mpr, 7				;testing whether seventh bit is a zero or one
 mov  udr_address, mpr	; copying  mpr into address
+sbrs mpr, 7				;testing whether seventh bit is a zero or one
+ldi remote, $ff			; good to go
 sbrc mpr, 7				; testing wether seventh bit is a zero or one
 rcall Action			; jumping to address  
 NotRight:				; label for wrong bot address
-pop mpr					; restoring mpr
+ret
 
 Action:
+in last_transmission,PortB ;grabbing portb
+push last_transmission			; pushing to stack
 mov udr_action , mpr    ; moving mpr into action
+cpi udr_action , Frozen; checking for frozen action
+breq HandleFrozen		; jumping to frozen
 cpi udr_address, BotAddress ; checking botaddress
 brne NotRight			; returning if nt equal
 rcall PerformAction		; jumping to function
-ret						; returning
+ActionReturn:			; action return
+pop previous_action		; popping previous action
+clr remote				; clearing remote
+ret
+
+stackHandler:			; label
+out PORTB, previous_action ; loading port b
+rjmp ActionReturn		; jumping back
+
+SendSignal:				; label
+ldi mpr, 0b0000_1000 ; loading mpr with value
+sts UCSR1B, mpr ; loading ustart control register B with mpr
+ldi mpr, 0b0000_1110 ; loading mpr with value
+sts UCSR1C, mpr ; loading ustart control register c with mpr
+
+ldi mpr, Frozen ; loading mpr with address
+sts UDR1,mpr ; loading value into register
+WaitingAction:
+lds mpr, UCSR1A	; loading mpr
+sbrs mpr, 5 ; skips next instruction if transmission is complete
+rjmp WaitingAction ; basically a wait function that waits until finished transmitting
+
+ldi mpr, 0b1001_0000 ; loading mpr with value
+sts UCSR1B, mpr ; loading ustart control register B with mpr
+ldi mpr, 0b0000_1110 ; loading mpr with value
+sts UCSR1C, mpr ; loading ustart control register c with mpr
+
+HandleFrozen:			; funciton to handl frozen
+sbrs remote, 0			; if cleared then go to function
+rjmp SendSignal			; going to function
+inc frozen_register		; incrementing frozen register
+rcall PerformAction		; doing action
+ldi waitcnt, 10 ; Wait for 1 second
+rcall Waits ; Call wait function
+rcall Waits ; Call wait function
+rcall Waits ; Call wait function
+rcall Waits ; Call wait function
+rcall Waits ; Call wait function
+cpi frozen_register, 6	; comparing to three
+brne stackHandler		; jumping
+rjmp DoNothing			; jumping to end
+
+PerformAction:		; label for action handler
+mov mpr, udr_action ; Load  Command
+out PORTB, mpr ; Send command to port
+ldi waitcnt, WTime ; Wait for 1 second
+rcall Waits ; Call wait function
+Flush:			; flusihng udr
+lds mpr, UCSR1A;
+sbrs mpr, 7	; if recieve signal sstill going
+ret;			reurning
+lds mpr, UDR1	; loading
+rjmp Flush		; jumping back if udr not flushed
+ret		    ; Return from subroutine
+
+DoNothing:				;do nothing funciton
+clr mpr					; clearing mpr
+sts UCSR1B, mpr			; disabling interrupts
+out EIMSK, mpr			; disabling interupts
+rjmp DoNothing			; looping
+
 Waits:
 push waitcnt ; Save wait register
 push ilcnt ; Save ilcnt register
@@ -163,12 +232,7 @@ pop ilcnt ; Restore ilcnt register
 pop waitcnt ; Restore wait register
 ret ; Return from subroutine
 
-PerformAction:		; label for action handler
-mov mpr, udr_action ; Load  Command
-out PORTB, mpr ; Send command to port
-ldi waitcnt, WTime ; Wait for 1 second
-rcall Waits ; Call wait function
-ret		    ; Return from subroutine
+
 
 HitRight:
 push mpr ; Save mpr register
