@@ -29,7 +29,7 @@
 .def ilcnt = r24 ; Inner Loop Counter
 .def olcnt = r25 ; Outer Loop Counter 
 
-.equ WTime = 10 ; Time to wait in wait loop
+.equ WTime = 100 ; Time to wait in wait loop
 
 .equ	WskrR = 0				; Right Whisker Input Bit
 .equ	WskrL = 1				; Left Whisker Input Bit
@@ -148,7 +148,7 @@ sbrc mpr, 7				; testing wether seventh bit is a zero or one
 rcall Action			; jumping to address  
 NotRight:				; label for wrong bot address
 cpi udr_action , 0b0101_0101; checking for frozen action
-breq HandleFrozen		; jumping to frozen
+breq SendSignal		; jumping to frozen
 ret
 
 Action:
@@ -159,16 +159,16 @@ cpi udr_address, BotAddress ; checking botaddress
 brne NotRight			; returning if nt equal
 cpi udr_action , Frozen; checking for frozen action
 breq SendSignal		; jumping to frozen
+;breq HandleFrozen
 rcall PerformAction		; jumping to function
 ActionReturn:			; action return
-pop previous_action		; popping previous action
+pop last_transmission		; popping previous action
 clr remote				; clearing remote
 ret
 
 stackHandler:			; label
-out PORTB, previous_action ; loading port b
+out PORTB, last_transmission ; loading port b
 rjmp ActionReturn		; jumping back
-
 SendSignal:				; label
 ldi mpr, 0b0000_1000 ; loading mpr with value
 sts UCSR1B, mpr ; loading ustart control register B with mpr
@@ -182,7 +182,7 @@ lds mpr, UCSR1A	; loading mpr
 sbrs mpr, 5 ; skips next instruction if transmission is complete
 rjmp WaitingAction ; basically a wait function that waits until finished transmitting
 ldi mpr, 0b01010101
-out PORTB, mpr
+
 
 ldi mpr, 0b1001_0000 ; loading mpr with value
 sts UCSR1B, mpr ; loading ustart control register B with mpr
@@ -190,22 +190,38 @@ ldi mpr, 0b0000_1110 ; loading mpr with value
 sts UCSR1C, mpr ; loading ustart control register c with mpr
 rjmp stackHandler		; jumping
 
-SendSignals:	
-ldi mpr, $ff
-out PORTB, mpr
+HandleFrozen:			; funciton to handl frozen
+clr mpr ; masking interrupts
+out EIMSK, mpr ; masking inetrrupts
+
+ldi mpr, 0b0000_0000 ; loading mpr with value
+sts UCSR1B, mpr ; loading ustart control register B with mpr
+ldi mpr, 0b0000_0000 ; loading mpr with value
+sts UCSR1C, mpr ; loading ustart control register c with mpr
+
+inc frozen_register		; incrementing frozen register
+out PORTB, frozen_register
+;rcall PerformAction		; doing action
+ldi mpr, 0b11111000
+out PORTB,mpr
 ldi waitcnt, 100 ; Wait for 1 second
 rcall Waits ; Call wait function
-rjmp StackHandler
-HandleFrozen:			; funciton to handl frozen
-inc frozen_register		; incrementing frozen register
-rcall PerformAction		; doing action
-ldi waitcnt, 10 ; Wait for 1 second
 rcall Waits ; Call wait function
 rcall Waits ; Call wait function
 rcall Waits ; Call wait function
 rcall Waits ; Call wait function
-rcall Waits ; Call wait function
-cpi frozen_register, 6	; comparing to three
+
+ldi mpr, 0b0000_0011 ; loading with eimsk value
+out EIMSK, mpr ; unmasking interrupts
+ldi mpr, $ff ; loading ones in EIFR
+out EIFR,mpr ; clearing EIFR
+ldi mpr, 0b1001_0000 ; loading mpr with value
+sts UCSR1B, mpr ; loading ustart control register B with mpr
+ldi mpr, 0b0000_1110 ; loading mpr with value
+sts UCSR1C, mpr ; loading ustart control register c with mpr
+out PORTB, last_transmission
+ldi mpr, 3		; loading
+cp mpr, frozen_register	; comparing to three
 brne stackHandler		; jumping
 rjmp DoNothing			; jumping to end
 
@@ -223,9 +239,18 @@ rjmp Flush		; jumping back if udr not flushed
 ret		    ; Return from subroutine
 
 DoNothing:				;do nothing funciton
-clr mpr					; clearing mpr
-sts UCSR1B, mpr			; disabling interrupts
-out EIMSK, mpr			; disabling interupts
+;clr mpr					; clearing mpr
+;sts UCSR1B, mpr			; disabling interrupts
+;out EIMSK, mpr			; disabling interupts
+ldi mpr, 0b11111000			; loading mpr
+out portb , mpr				; lding
+clr mpr ; masking interrupts
+out EIMSK, mpr ; masking inetrrupts
+
+ldi mpr, 0b0000_0000 ; loading mpr with value
+sts UCSR1B, mpr ; loading ustart control register B with mpr
+ldi mpr, 0b0000_0000 ; loading mpr with value
+sts UCSR1C, mpr ; loading ustart control register c with mpr
 rjmp DoNothing			; looping
 
 Waits:
@@ -251,6 +276,7 @@ ret ; Return from subroutine
 
 HitRight:
 push mpr ; Save mpr register
+in last_transmission, PORTB
 push waitcnt ; Save wait register
 in mpr, SREG ; Save program state
 push mpr ;
@@ -289,10 +315,18 @@ sts UCSR1B, mpr ; loading ustart control register B with mpr
 ldi mpr, 0b0000_1110 ; loading mpr with value
 sts UCSR1C, mpr ; loading ustart control register c with mpr
 
+out PORTB, last_transmission
+Flush1:			; flusihng udr
+lds mpr, UCSR1A;
+sbrs mpr, 7	; if recieve signal sstill going
+ret;			reurning
+lds mpr, UDR1	; loading
+rjmp Flush1		; jumping back if udr not flushed
 ret ; Return from subroutine
 
 HitLeft:
 cli ; disabling interrupts
+in last_transmission, PORTB
 push mpr ; Save mpr register
 push waitcnt ; saveing wait register
 in mpr, SREG ; Save program state
@@ -331,7 +365,13 @@ ldi mpr, 0b1001_0000 ; loading mpr with value
 sts UCSR1B, mpr ; loading ustart control register B with mpr
 ldi mpr, 0b0000_1110 ; loading mpr with value
 sts UCSR1C, mpr ; loading ustart control register c with mpr
-
+out PORTB, last_transmission
+Flush2:			; flusihng udr
+lds mpr, UCSR1A;
+sbrs mpr, 7	; if recieve signal sstill going
+ret;			reurning
+lds mpr, UDR1	; loading
+rjmp Flush2		; jumping back if udr not flushed
 ret ; Return from subroutine
 ;***********************************************************
 ;*	Stored Program Data
