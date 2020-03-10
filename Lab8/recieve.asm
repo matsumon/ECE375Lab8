@@ -39,7 +39,7 @@
 .equ	EngDirL = 6				; Left Engine Direction Bit
 
 ;.equ	BotAddress = 0b00110101 ;(Enter your robot's address here (8 bits))
-.equ	BotAddress = $2A
+.equ	BotAddress = $1A
 ;/////////////////////////////////////////////////////////////
 ;These macros are the values to make the TekBot Move.
 ;/////////////////////////////////////////////////////////////

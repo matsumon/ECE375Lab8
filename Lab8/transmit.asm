@@ -84,7 +84,8 @@ sts UBRR1L,mpr ; loading low with low
 ;Set baudrate at 2400bps
 ;Enable transmitter
 ;Set frame format: 8 data bits, 2 stop bits
-ldi udr_address, 0b00110101 ; setting udr_address
+;ldi udr_address, 0b00110101 ; setting udr_address
+ldi udr_address, $1A ; setting udr_address
 clr frozen_register ; clearing frozen register
 ldi mpr, 0b10101010 ; setting interrupts to trigger on falling edge
 sts EICRA, mpr ; falling edge trigger
@@ -117,7 +118,7 @@ rjmp Right		; calling to  function
 sbrs mpr, 6			; skipping if bit is set
 rjmp Freeze		; calling to  function
 sbrs mpr, 7			; skipping if bit is set
-rjmp Halt		; calling to  function
+rjmp Stop		; calling to  function
 ;sbrs mpr, 6			; skipping if bit is set
 ;rcall HitRight		; calling to  function
 ;sbrc mpr, 7			; skipping if bit is set
