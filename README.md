@@ -1,4 +1,4 @@
-# ECE375Lab8
+# Remotely Operated Vehicle
 Lab 8 – Remotely Operated Vehicle ECE 375 
 
 ECE 375: Computer Organization and Assembly Language Programming 
